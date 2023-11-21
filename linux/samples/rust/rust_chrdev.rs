@@ -25,26 +25,59 @@ static GLOBALMEM_BUF: Mutex<[u8;GLOBALMEM_SIZE]> = unsafe {
 struct RustFile {
     #[allow(dead_code)]
     inner: &'static Mutex<[u8;GLOBALMEM_SIZE]>,
+   // inner: &'static Mutex<Vec<u8>>,
+   //inner:Mutex<Vec<u8>>,
 }
 
 #[vtable]
 impl file::Operations for RustFile {
     type Data = Box<Self>;
 
-    fn open(_shared: &(), _file: &file::File) -> Result<Box<Self>> {
+    fn open(_shared:&(), _file: &file::File) -> Result<Box<Self>> {
         Ok(
+        //unsafe {
             Box::try_new(RustFile {
                 inner: &GLOBALMEM_BUF
+               
+               //inner:_shared.inner.clone(),
+               
             })?
+        //    }
         )
+       // Ok(())
     }
 
     fn write(_this: &Self,_file: &file::File,_reader: &mut impl kernel::io_buffer::IoBufferReader,_offset:u64,) -> Result<usize> {
-        Err(EPERM)
+        //Err(EPERM)
+       
+        pr_info!("character write\n");
+        let copy = _reader.read_all()?;
+        let len = copy.len();
+        let v=&copy;
+        //let mut det=&*_this.inner.lock();
+         let mut inner = _this.inner.lock();
+        if len < GLOBALMEM_SIZE{
+        let mut id=0;
+        while id<len{
+        inner[id]=v[id];
+        id+=1;
+        }
+        Ok(len)
+        }else{
+        Ok(0)
+        }
+        
     }
 
     fn read(_this: &Self,_file: &file::File,_writer: &mut impl kernel::io_buffer::IoBufferWriter,_offset:u64,) -> Result<usize> {
-        Err(EPERM)
+        //Err(EPERM)
+         pr_info!("character read\n", );
+        let offset = _offset.try_into()?;
+        let vec = _this.inner.lock(); // 获取锁，避免脏读
+        let len = core::cmp::min(_writer.len(), vec.len().saturating_sub(offset));
+        _writer.write_slice(&vec[offset..][..len])?;
+        //pr_info!("{}\n",vec[offset..][...len]);
+        Ok(len)
     }
 }
 

@@ -167,5 +167,4 @@ config SAMPLE_RUST_HELLOWORLD
 	  This option builds the helloworld test cases for Rust.
 
 	  If unsure, say N.
-
 endif # SAMPLES_RUST
